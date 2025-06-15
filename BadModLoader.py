@@ -16,9 +16,8 @@ MODS_DIR = "Mods"
 EXTRACTED_DIR = "Extracted"
 EXTRACTED_PATCHES_DIR = "Extracted_Patches"
 PACKING_TEMP_DIR = "BadProgrammingModdingStuffHappeningFolder"
+PACKED_DIR = "Packed" # Pasta de destino para a opção "Pack Only"
 
-# **** NOVO ****
-# Mapeamento de idiomas para seus códigos de patch
 LANGUAGES = {
     "English": "1",
     "Japanese": "0",
@@ -26,10 +25,11 @@ LANGUAGES = {
     "Traditional Chinese": "3"
 }
 
-# Helper to find the correct path for bundled executables (PyInstaller)
+# Versão correta para empacotar recursos dentro do .exe principal.
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
     try:
+        # PyInstaller cria uma pasta temporária e armazena o caminho em _MEIPASS
         base_path = sys._MEIPASS
     except Exception:
         base_path = os.path.abspath(".")
@@ -40,12 +40,11 @@ TOOLS_EXE_PATH = resource_path(os.path.join("THL-Tools", "THL-Tools.exe"))
 class ModManagerApp(ttk.Window):
     def __init__(self):
         super().__init__(themename="cyborg", title="The Hundred Line - Mod Manager")
-        self.geometry("800x750") # Aumentei um pouco a altura
+        self.geometry("800x750")
         self.minsize(600, 550)
 
         # --- Variables ---
         self.game_path = tk.StringVar()
-        # **** NOVO ****
         self.language_var = tk.StringVar()
         self.mod_vars = {}
 
@@ -61,7 +60,7 @@ class ModManagerApp(ttk.Window):
 
     def setup_initial_directories(self):
         """Create necessary directories on startup if they don't exist."""
-        for dir_path in [MODS_DIR, EXTRACTED_DIR, EXTRACTED_PATCHES_DIR]:
+        for dir_path in [MODS_DIR, EXTRACTED_DIR, EXTRACTED_PATCHES_DIR, PACKED_DIR]:
             if not os.path.exists(dir_path):
                 os.makedirs(dir_path)
 
@@ -69,60 +68,40 @@ class ModManagerApp(ttk.Window):
         """Creates and places all the GUI widgets."""
         main_frame = ttk.Frame(self, padding="10")
         main_frame.pack(fill=BOTH, expand=True)
-
-        # **** ALTERADO **** - Frame de Configuração para agrupar Caminho e Idioma
         config_frame = ttk.Labelframe(main_frame, text="Configuration", padding="10")
         config_frame.pack(fill=X, pady=(0, 10))
-
-        # --- Game Path Section ---
         path_label = ttk.Label(config_frame, text="Game Folder:")
         path_label.grid(row=0, column=0, sticky=W, padx=(0, 5))
-        
         path_entry = ttk.Entry(config_frame, textvariable=self.game_path, state="readonly")
         path_entry.grid(row=0, column=1, sticky=EW, padx=(0, 10))
-
         path_button = ttk.Button(config_frame, text="Select...", command=self.select_game_folder, style="success.TButton")
         path_button.grid(row=0, column=2, sticky=E)
-
-        # --- **** NOVO **** Language Selection Section ---
         lang_label = ttk.Label(config_frame, text="Mod Language:")
         lang_label.grid(row=1, column=0, sticky=W, padx=(0, 5), pady=(10, 0))
-
         lang_combo = ttk.Combobox(config_frame, textvariable=self.language_var, values=list(LANGUAGES.keys()), state="readonly")
         lang_combo.grid(row=1, column=1, sticky=EW, pady=(10, 0))
-        lang_combo.bind("<<ComboboxSelected>>", self.save_config) # Salva automaticamente ao mudar
-        
-        config_frame.columnconfigure(1, weight=1) # Faz a entry e o combobox expandirem
-
-        # --- Mods Section ---
+        lang_combo.bind("<<ComboboxSelected>>", self.save_config)
+        config_frame.columnconfigure(1, weight=1)
         mods_frame = ttk.Labelframe(main_frame, text="Available Mods", padding="10")
         mods_frame.pack(fill=BOTH, expand=True, pady=10)
-
         self.mod_list_canvas = ttk.Frame(mods_frame)
         self.mod_list_canvas.pack(fill=BOTH, expand=True)
-
-        # --- Actions Section ---
         actions_frame = ttk.Frame(main_frame, padding="10")
         actions_frame.pack(fill=X)
-        
         left_actions = ttk.Frame(actions_frame)
         left_actions.pack(side=LEFT)
         create_mod_btn = ttk.Button(left_actions, text="Create New Mod", command=self.create_mod)
         create_mod_btn.pack(side=LEFT, padx=(0, 5))
         self.extract_btn = ttk.Button(left_actions, text="Extract MVGL", command=self.open_extract_window, state=DISABLED)
         self.extract_btn.pack(side=LEFT)
-        
         right_actions = ttk.Frame(actions_frame)
         right_actions.pack(side=RIGHT)
         pack_btn = ttk.Button(right_actions, text="Pack Only", command=lambda: self.pack_mods(install=False), style="info.TButton")
         pack_btn.pack(side=LEFT, padx=(0, 5))
         pack_install_btn = ttk.Button(right_actions, text="Pack and Install", command=lambda: self.pack_mods(install=True), style="primary.TButton")
         pack_install_btn.pack(side=LEFT)
-        
-        # --- Log Output ---
         log_frame = ttk.Labelframe(main_frame, text="Log", padding="10")
         log_frame.pack(fill=X, pady=(10, 0))
-        
         self.log_text = ScrolledText(log_frame, height=8, autohide=True)
         self.log_text.pack(fill=X, expand=True)
         self.log_text.text.configure(state='disabled')
@@ -140,15 +119,10 @@ class ModManagerApp(ttk.Window):
             process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
             while True:
                 output = process.stdout.readline()
-                if output == '' and process.poll() is not None:
-                    break
-                if output:
-                    self.log(output.strip())
-            
+                if output == '' and process.poll() is not None: break
+                if output: self.log(output.strip())
             stderr_output = process.stderr.read()
-            if stderr_output:
-                self.log(f"ERROR: {stderr_output.strip()}")
-
+            if stderr_output: self.log(f"ERROR: {stderr_output.strip()}")
             if process.returncode != 0:
                 self.log(f"Command failed with return code {process.returncode}")
                 return False
@@ -163,42 +137,26 @@ class ModManagerApp(ttk.Window):
             messagebox.showerror("Execution Error", f"An error occurred while running the tool:\n{e}")
             return False
 
-    # **** ALTERADO **** - Carrega e salva o idioma também
     def load_config(self):
-        """Loads the game path and language from the config file."""
         try:
             if os.path.exists(CONFIG_FILE):
                 with open(CONFIG_FILE, 'r') as f:
                     config = json.load(f)
-                    
-                    # Carrega caminho do jogo
                     path = config.get("game_path")
                     if path and os.path.isdir(path):
                         self.game_path.set(path)
                         self.validate_game_path()
-                    
-                    # Carrega idioma
-                    language = config.get("language", "English") # Default para English
-                    if language in LANGUAGES:
-                        self.language_var.set(language)
-                    else:
-                        self.language_var.set("English") # Se o valor salvo for inválido
-            else:
-                # Se o arquivo de config não existe, define o padrão
-                self.language_var.set("English")
-
+                    language = config.get("language", "English")
+                    if language in LANGUAGES: self.language_var.set(language)
+                    else: self.language_var.set("English")
+            else: self.language_var.set("English")
         except (json.JSONDecodeError, IOError):
             self.log("Could not read config file. Using defaults.")
             self.language_var.set("English")
 
     def save_config(self, event=None):
-        """Saves the current config (path and language) to the config file."""
-        config_data = {
-            "game_path": self.game_path.get(),
-            "language": self.language_var.get()
-        }
-        with open(CONFIG_FILE, 'w') as f:
-            json.dump(config_data, f, indent=4)
+        config_data = {"game_path": self.game_path.get(), "language": self.language_var.get()}
+        with open(CONFIG_FILE, 'w') as f: json.dump(config_data, f, indent=4)
         self.log(f"Configuration saved. (Language: {self.language_var.get()})")
 
     def select_game_folder(self):
@@ -206,7 +164,7 @@ class ModManagerApp(ttk.Window):
         if path:
             self.game_path.set(path)
             self.validate_game_path()
-            self.save_config() # Salva tudo quando o caminho muda
+            self.save_config()
 
     def validate_game_path(self):
         path = self.game_path.get()
@@ -219,13 +177,9 @@ class ModManagerApp(ttk.Window):
             self.log(f"Invalid game folder selected: {path}. 'gamedata' not found.")
 
     def refresh_mod_list(self):
-        for widget in self.mod_list_canvas.winfo_children():
-            widget.destroy()
-        
+        for widget in self.mod_list_canvas.winfo_children(): widget.destroy()
         self.mod_vars = {}
-        if not os.path.exists(MODS_DIR):
-            os.makedirs(MODS_DIR)
-
+        if not os.path.exists(MODS_DIR): os.makedirs(MODS_DIR)
         try:
             mod_names = sorted([d for d in os.listdir(MODS_DIR) if os.path.isdir(os.path.join(MODS_DIR, d))])
             for mod_name in mod_names:
@@ -233,8 +187,7 @@ class ModManagerApp(ttk.Window):
                 cb = ttk.Checkbutton(self.mod_list_canvas, text=mod_name, variable=var, style="primary.TCheckbutton")
                 cb.pack(anchor=W, padx=5, pady=2)
                 self.mod_vars[mod_name] = var
-        except FileNotFoundError:
-            self.log(f"'{MODS_DIR}' folder not found. It will be created.")
+        except FileNotFoundError: self.log(f"'{MODS_DIR}' folder not found. It will be created.")
 
     def create_mod(self):
         mod_name = simpledialog.askstring("Create Mod", "Enter the name for the new mod:")
@@ -249,7 +202,8 @@ class ModManagerApp(ttk.Window):
             return
         try:
             os.makedirs(mod_path)
-            subfolders = ["lua", "images", "text", "message", "data"]
+            # Adicionada a pasta 'root'
+            subfolders = ["lua", "images", "text", "message", "data", "root"]
             for folder in subfolders:
                 os.makedirs(os.path.join(mod_path, folder))
             self.log(f"Created mod: {sanitized_name}")
@@ -296,13 +250,11 @@ class ModManagerApp(ttk.Window):
             self.run_command(command)
             if filename.lower().startswith("patch"): extracted_patches.append(base_name)
         self.log("Extraction process finished.")
-        
         if extracted_patches:
-            # **** ALTERADO **** - Mensagem de aviso mais genérica
             msg = "You have extracted patch files. Would you like to copy them to a dedicated 'Extracted_Patches' folder?\n\n" \
                   "IMPORTANT:\n" \
                   "- You need 'Patch_0.dx11' for Lua modding.\n" \
-                  f"- For the selected language '{self.language_var.get()}', you need 'Patch_{LANGUAGES[self.language_var.get()]}.dx11' for Images/Data and 'Patch_text0{LANGUAGES[self.language_var.get()]}.dx11' for Text/Message."
+                  f"- For the selected language '{self.language_var.get()}', you need 'Patch_{LANGUAGES[self.language_var.get()]}.dx11' for Images/Data/Root and 'Patch_text0{LANGUAGES[self.language_var.get()]}.dx11' for Text/Message."
             if messagebox.askyesno("Copy Patches?", msg):
                 self.log("Copying extracted patches...")
                 if not os.path.exists(EXTRACTED_PATCHES_DIR): os.makedirs(EXTRACTED_PATCHES_DIR)
@@ -318,26 +270,14 @@ class ModManagerApp(ttk.Window):
         if not os.path.isdir(path): return True
         return not any(os.scandir(path))
 
-    # **** NOVO **** - Função auxiliar para obter os nomes dos patches corretos
     def get_dynamic_patch_map(self):
-        """Returns the correct patch file map based on the selected language."""
         selected_language_name = self.language_var.get()
         if not selected_language_name:
-            # Fallback caso nada esteja selecionado (não deve acontecer com combobox)
             selected_language_name = "English"
             self.log("Warning: No language selected, defaulting to English.")
-        
         lang_code = LANGUAGES[selected_language_name]
-        
-        return {
-            "lua": "Patch_0.dx11",
-            "images": f"Patch_{lang_code}.dx11",
-            "data": f"Patch_{lang_code}.dx11",
-            "text": f"Patch_text0{lang_code}.dx11",
-            "message": f"Patch_text0{lang_code}.dx11"
-        }
+        return {"lua": "Patch_0.dx11", "images": f"Patch_{lang_code}.dx11", "data": f"Patch_{lang_code}.dx11", "text": f"Patch_text0{lang_code}.dx11", "message": f"Patch_text0{lang_code}.dx11"}
 
-    # **** ALTERADO **** - Função de empacotamento principal agora é dinâmica
     def pack_mods(self, install=False):
         selected_mods = [name for name, var in self.mod_vars.items() if var.get()]
         if not selected_mods:
@@ -350,22 +290,19 @@ class ModManagerApp(ttk.Window):
         if os.path.exists(PACKING_TEMP_DIR): shutil.rmtree(PACKING_TEMP_DIR)
         os.makedirs(PACKING_TEMP_DIR)
 
-        # **** AQUI ESTÁ A MUDANÇA PRINCIPAL ****
-        # Obter o mapeamento de patch dinâmico com base no idioma selecionado
         patch_map = self.get_dynamic_patch_map()
         self.log(f"Using language '{self.language_var.get()}' (Code: {LANGUAGES[self.language_var.get()]})")
-        
         modified_patches = {}
 
         for mod_name in selected_mods:
             mod_path = os.path.join(MODS_DIR, mod_name)
             self.log(f"Processing mod: {mod_name}")
-
+            
+            # Lógica para pastas padrão (lua, images, etc.)
             for subfolder, patch_name in patch_map.items():
                 mod_subfolder_path = os.path.join(mod_path, subfolder)
                 if not self.is_dir_empty(mod_subfolder_path):
                     self.log(f"-> Found content in '{subfolder}'. Preparing '{patch_name}'.")
-                    
                     temp_patch_path = os.path.join(PACKING_TEMP_DIR, patch_name)
                     if not os.path.exists(temp_patch_path):
                         base_patch_path = os.path.join(EXTRACTED_PATCHES_DIR, patch_name)
@@ -375,11 +312,31 @@ class ModManagerApp(ttk.Window):
                             shutil.rmtree(PACKING_TEMP_DIR)
                             return
                         shutil.copytree(base_patch_path, temp_patch_path)
-
+                    
                     dest_subfolder_path = os.path.join(temp_patch_path, subfolder)
                     shutil.copytree(mod_subfolder_path, dest_subfolder_path, dirs_exist_ok=True)
                     self.log(f"   - Copied folder '{subfolder}' into temp patch.")
                     modified_patches[patch_name] = temp_patch_path
+            
+            # Lógica especial para a pasta 'root'
+            mod_root_path = os.path.join(mod_path, 'root')
+            if not self.is_dir_empty(mod_root_path):
+                root_patch_name = patch_map['images'] 
+                self.log(f"-> Found content in 'root'. Preparing '{root_patch_name}'.")
+
+                temp_patch_path = os.path.join(PACKING_TEMP_DIR, root_patch_name)
+                if not os.path.exists(temp_patch_path):
+                    base_patch_path = os.path.join(EXTRACTED_PATCHES_DIR, root_patch_name)
+                    if not os.path.exists(base_patch_path):
+                        messagebox.showerror("Missing Base Patch", f"The required base patch '{root_patch_name}' for the 'root' folder was not found in '{EXTRACTED_PATCHES_DIR}'.")
+                        self.log(f"ERROR: Base patch missing: {base_patch_path}")
+                        shutil.rmtree(PACKING_TEMP_DIR)
+                        return
+                    shutil.copytree(base_patch_path, temp_patch_path)
+
+                shutil.copytree(mod_root_path, temp_patch_path, dirs_exist_ok=True)
+                self.log(f"   - Copied 'root' contents into base of temp patch.")
+                modified_patches[root_patch_name] = temp_patch_path
 
         if not modified_patches:
             messagebox.showinfo("Nothing to Pack", "The selected mods have no content in their subfolders.")
@@ -392,7 +349,6 @@ class ModManagerApp(ttk.Window):
         for patch_name, path in modified_patches.items():
             output_mvgl_name = f"{os.path.basename(path)}.MVGL"
             temp_mvgl_path = os.path.join(PACKING_TEMP_DIR, output_mvgl_name)
-            
             command = [TOOLS_EXE_PATH, "pack", path, temp_mvgl_path]
             if self.run_command(command):
                 generated_mvgl_files.append(temp_mvgl_path)
@@ -411,13 +367,14 @@ class ModManagerApp(ttk.Window):
                     shutil.move(mvgl_file, dest_path)
                     self.log(f"Installed '{os.path.basename(mvgl_file)}' to game folder.")
                 messagebox.showinfo("Success", "Mods were packed and installed successfully!")
-            else: # "Pack Only"
-                self.log("Moving packed files to program directory...")
+            else:
+                self.log(f"Moving packed files to '{PACKED_DIR}' directory...")
+                os.makedirs(PACKED_DIR, exist_ok=True)
                 for mvgl_file in generated_mvgl_files:
-                    dest_path = resource_path(os.path.basename(mvgl_file))
+                    dest_path = os.path.join(PACKED_DIR, os.path.basename(mvgl_file))
                     shutil.move(mvgl_file, dest_path)
-                    self.log(f"Moved '{os.path.basename(mvgl_file)}' to program directory.")
-                messagebox.showinfo("Success", "Mods packed successfully! The .MVGL files are in the program's root directory.")
+                    self.log(f"Moved '{os.path.basename(mvgl_file)}' to '{PACKED_DIR}' directory.")
+                messagebox.showinfo("Success", f"Mods packed successfully! The .MVGL files are in the '{PACKED_DIR}' folder.")
         
         except Exception as e:
             action = "install" if install else "move"
@@ -429,7 +386,7 @@ class ModManagerApp(ttk.Window):
 
 if __name__ == "__main__":
     if not os.path.exists(TOOLS_EXE_PATH):
-        messagebox.showerror("Tool Not Found", f"The helper tool was not found at the expected location:\n{TOOLS_EXE_PATH}\n\nPlease make sure THL-Tools.exe is inside a THL-Tools folder next to this program.")
+        messagebox.showerror("Tool Not Found", f"The helper tool was not found at the expected location:\n{TOOLS_EXE_PATH}\n\nPlease make sure THL-Tools.exe is included when building the executable.")
     else:
         app = ModManagerApp()
         app.mainloop()
