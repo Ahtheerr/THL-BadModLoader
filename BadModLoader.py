@@ -35,7 +35,7 @@ def resource_path(relative_path):
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
 
-TOOLS_EXE_PATH = resource_path(os.path.join("THL-Tools", "THL-Tools.exe"))
+TOOLS_EXE_PATH = resource_path(os.path.join("THL-Tools", "DSCSToolsCLI.exe"))
 
 class ModManagerApp(ttk.Window):
     def __init__(self):
@@ -246,7 +246,7 @@ class ModManagerApp(ttk.Window):
             base_name = os.path.splitext(filename)[0]
             output_path = os.path.join(EXTRACTED_DIR, base_name)
             if os.path.exists(output_path): shutil.rmtree(output_path)
-            command = [TOOLS_EXE_PATH, "extract", file_path, output_path]
+            command = [TOOLS_EXE_PATH, "--extract", file_path, output_path]
             self.run_command(command)
             if filename.lower().startswith("patch"): extracted_patches.append(base_name)
         self.log("Extraction process finished.")
@@ -349,7 +349,7 @@ class ModManagerApp(ttk.Window):
         for patch_name, path in modified_patches.items():
             output_mvgl_name = f"{os.path.basename(path)}.MVGL"
             temp_mvgl_path = os.path.join(PACKING_TEMP_DIR, output_mvgl_name)
-            command = [TOOLS_EXE_PATH, "pack", path, temp_mvgl_path]
+            command = [TOOLS_EXE_PATH, "--pack", path, temp_mvgl_path]
             if self.run_command(command):
                 generated_mvgl_files.append(temp_mvgl_path)
 
