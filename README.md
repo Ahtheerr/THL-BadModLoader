@@ -1,7 +1,7 @@
 # THL-BadModLoader
 A Bad Mod Loader for The Hundred Line -Last Defense Academy-
 
-THL-Tools credits: https://github.com/er1t-h/thl-tools
+DSCSTools credit: https://github.com/SydMontague/DSCSTools
 
 ## Usage
 WARNING: Please, be aware that this program will change your game files, make a backup of them or do a file verification on Steam to get back to normal.
