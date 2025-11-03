@@ -1,4 +1,9 @@
-# THL-BadModLoader
+# Use [MVGL File Loader](https://github.com/RyoTune/MVGL.FileLoader)
+
+
+Old README:
+
+## THL-BadModLoader
 A Bad Mod Loader for The Hundred Line -Last Defense Academy-
 
 DSCSTools credit: https://github.com/SydMontague/DSCSTools
